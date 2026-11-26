@@ -31,6 +31,23 @@ button{cursor:pointer;background:var(--accent);border:0;font-weight:bold}button.
 <script>
 const KEY='meucatalogoflix-v1';let entries=[];
 try{entries=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(entries))entries=[]}catch{entries=[]}
+async function loadCatalogFile(){
+  try{
+    const response=await fetch('./catalogo.json');
+    if(!response.ok)throw new Error('Não foi possível carregar catalogo.json');
+    const remote=await response.json();
+    if(!Array.isArray(remote))throw new Error('Formato inválido');
+    const merged=new Map();
+    remote.forEach((item,i)=>{if(item&&item.title)merged.set(item.id||('remote-'+i),{...item,id:item.id||('remote-'+i)})});
+    entries.forEach((item,i)=>{if(item&&item.title)merged.set(item.id||('local-'+i),{...item,id:item.id||('local-'+i)})});
+    entries=Array.from(merged.values());
+    localStorage.setItem(KEY,JSON.stringify(entries));
+    render();
+    $('status').textContent='Catálogo carregado de catalogo.json.';
+  }catch(error){
+    $('status').textContent='Não foi possível atualizar catalogo.json; mantendo os itens salvos neste navegador.';
+  }
+}
 const $=id=>document.getElementById(id);
 function save(){localStorage.setItem(KEY,JSON.stringify(entries));render()}
 function render(){const q=$('search').value.toLowerCase(),f=$('filter').value;const shown=entries.filter(x=>(f==='Todos'||x.type===f)&&[x.title,x.category,x.description].join(' ').toLowerCase().includes(q));$('count').textContent=shown.length+' item(ns)';$('list').replaceChildren();shown.forEach(x=>{const card=document.createElement('article');card.className='item';const h=document.createElement('h3');h.textContent=x.title;const tag=document.createElement('div');tag.className='tag';tag.textContent=[x.type,x.year,x.category].filter(Boolean).join(' • ');const p=document.createElement('p');p.textContent=x.description||'Sem descrição.';card.append(h,tag,p);if(x.poster){const a=document.createElement('a');a.href=x.poster;a.target='_blank';a.rel='noopener';a.textContent='Ver capa';card.append(a)}const b=document.createElement('button');b.className='secondary';b.textContent='Excluir';b.onclick=()=>{entries=entries.filter(y=>y.id!==x.id);save()};card.append(b);$('list').append(card)})}
@@ -40,4 +57,5 @@ $('search').oninput=render;$('filter').onchange=render;
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(entries,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='catalogo.json';a.click();URL.revokeObjectURL(url)};
 $('import').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data))throw Error();entries=data.map(x=>({...x,id:x.id||String(Date.now()+Math.random())}));save();$('status').textContent='Catálogo importado.'}catch{$('status').textContent='Arquivo JSON inválido.'}e.target.value=''};
 render();
+loadCatalogFile();
 </script></body></html>
