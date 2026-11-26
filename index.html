@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MeuCatalogoFlix</title>
+<style>
+:root{color-scheme:dark;--bg:#10131b;--panel:#1b2130;--accent:#7c5cff;--muted:#aab2c5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font:16px Arial,sans-serif}
+header{padding:28px max(20px,calc((100% - 1100px)/2));background:linear-gradient(120deg,#24194b,#151b2a)}
+h1{margin:0 0 8px}header p{margin:0;color:#d4d0eb}
+main{max-width:1100px;margin:24px auto;padding:0 16px}
+.toolbar,.form,.item{background:var(--panel);border:1px solid #30394e;border-radius:14px;padding:16px;margin-bottom:16px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap}input,select,textarea,button{font:inherit;border-radius:9px;padding:11px;border:1px solid #424d65;background:#111725;color:#fff}
+input,select{flex:1;min-width:170px}textarea{width:100%;min-height:75px;margin:6px 0}
+button{cursor:pointer;background:var(--accent);border:0;font-weight:bold}button.secondary{background:#343e53}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.item h3{margin:0 0 7px}.item p{color:var(--muted);line-height:1.4}.tag{font-size:12px;color:#c7baff}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.form h2{margin-top:0}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#status{color:#c7baff;min-height:22px}
+</style></head>
+<body>
+<header><h1>🎬 MeuCatalogoFlix</h1><p>Seu catálogo pessoal de filmes e séries. Organize e edite suas informações.</p></header>
+<main>
+<section class="toolbar"><input id="search" placeholder="Pesquisar título..." aria-label="Pesquisar título"><select id="filter"><option value="Todos">Todos</option><option>Filme</option><option>Série</option></select><button id="export">Exportar catálogo</button><label class="button secondary"><input id="import" type="file" accept=".json,application/json" hidden>Importar JSON</label></section>
+<section class="form"><h2>Adicionar conteúdo</h2><div class="form-grid">
+<input id="title" placeholder="Nome do filme ou série"><select id="type"><option>Filme</option><option>Série</option></select><input id="year" type="number" placeholder="Ano"><input id="category" placeholder="Categoria (ex.: Aventura)"><input id="poster" placeholder="URL da capa (opcional)">
+</div><textarea id="description" placeholder="Sinopse ou observações (opcional)"></textarea><div class="actions"><button id="add">Adicionar ao catálogo</button><button class="secondary" id="clear">Limpar formulário</button></div><p id="status" role="status"></p></section>
+<h2>Meu catálogo</h2><div id="count" class="tag"></div><section id="list" class="grid"></section>
+</main>
+<script>
+const KEY='meucatalogoflix-v1';let entries=[];
+try{entries=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(entries))entries=[]}catch{entries=[]}
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(entries));render()}
+function render(){const q=$('search').value.toLowerCase(),f=$('filter').value;const shown=entries.filter(x=>(f==='Todos'||x.type===f)&&[x.title,x.category,x.description].join(' ').toLowerCase().includes(q));$('count').textContent=shown.length+' item(ns)';$('list').replaceChildren();shown.forEach(x=>{const card=document.createElement('article');card.className='item';const h=document.createElement('h3');h.textContent=x.title;const tag=document.createElement('div');tag.className='tag';tag.textContent=[x.type,x.year,x.category].filter(Boolean).join(' • ');const p=document.createElement('p');p.textContent=x.description||'Sem descrição.';card.append(h,tag,p);if(x.poster){const a=document.createElement('a');a.href=x.poster;a.target='_blank';a.rel='noopener';a.textContent='Ver capa';card.append(a)}const b=document.createElement('button');b.className='secondary';b.textContent='Excluir';b.onclick=()=>{entries=entries.filter(y=>y.id!==x.id);save()};card.append(b);$('list').append(card)})}
+$('add').onclick=()=>{const title=$('title').value.trim();if(!title){$('status').textContent='Digite o título primeiro.';return}entries.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title,type:$('type').value,year:$('year').value,category:$('category').value.trim(),poster:$('poster').value.trim(),description:$('description').value.trim()});save();$('status').textContent='Adicionado!';['title','year','category','poster','description'].forEach(id=>$(id).value='')};
+$('clear').onclick=()=>['title','year','category','poster','description'].forEach(id=>$(id).value='');
+$('search').oninput=render;$('filter').onchange=render;
+$('export').onclick=()=>{const blob=new Blob([JSON.stringify(entries,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='catalogo.json';a.click();URL.revokeObjectURL(url)};
+$('import').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data))throw Error();entries=data.map(x=>({...x,id:x.id||String(Date.now()+Math.random())}));save();$('status').textContent='Catálogo importado.'}catch{$('status').textContent='Arquivo JSON inválido.'}e.target.value=''};
+render();
+</script></body></html>
