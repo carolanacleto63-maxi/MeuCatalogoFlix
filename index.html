@@ -18,6 +18,22 @@ button{cursor:pointer;background:var(--accent);border:0;font-weight:bold}button.
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
 .form h2{margin-top:0}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 #status{color:#c7baff;min-height:22px}
+
+/* Interface otimizada para Smart TVs LG/webOS */
+@media (min-width: 900px) {
+  body { font-size: 22px; }
+  header { padding: 34px 4vw; }
+  h1 { font-size: 2.1em; }
+  main { max-width: 1800px; padding: 0 3vw; margin: 28px auto; }
+  .toolbar, .form, .item { padding: 22px; border-radius: 18px; }
+  input,select,textarea,button { font-size: 20px; padding: 16px 18px; min-height: 58px; }
+  .grid { grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 20px; }
+  .item h3 { font-size: 1.15em; }
+}
+:focus-visible { outline: 4px solid #b8a8ff !important; outline-offset: 4px; }
+button, input, select, textarea, label, a, .item { scroll-margin: 24px; }
+@media (max-width: 700px) { .toolbar { flex-direction: column; } }
+
 </style></head>
 <body>
 <header><h1>🎬 MeuCatalogoFlix</h1><p>Seu catálogo pessoal de filmes e séries. Organize e edite suas informações.</p></header>
@@ -58,4 +74,32 @@ $('export').onclick=()=>{const blob=new Blob([JSON.stringify(entries,null,2)],{t
 $('import').onchange=async e=>{try{const data=JSON.parse(await e.target.files[0].text());if(!Array.isArray(data))throw Error();entries=data.map(x=>({...x,id:x.id||String(Date.now()+Math.random())}));save();$('status').textContent='Catálogo importado.'}catch{$('status').textContent='Arquivo JSON inválido.'}e.target.value=''};
 render();
 loadCatalogFile();
+
+// Navegação por setas e botão OK do controle remoto (webOS).
+document.addEventListener('keydown', event => {
+  const keys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
+  if (!keys.includes(event.key)) return;
+  const active = document.activeElement;
+  const nodes = [...document.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type=file]), select:not([disabled]), textarea:not([disabled]), a[href], label')]
+    .filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+  if (!nodes.length) return;
+  const current = nodes.indexOf(active);
+  if (current < 0) { nodes[0].focus(); event.preventDefault(); return; }
+  const a = active.getBoundingClientRect();
+  const ax = a.left + a.width/2, ay = a.top + a.height/2;
+  const dir = event.key;
+  let best = null, bestScore = Infinity;
+  for (const el of nodes) {
+    if (el === active) continue;
+    const r = el.getBoundingClientRect(), x = r.left+r.width/2, y = r.top+r.height/2;
+    const dx=x-ax, dy=y-ay;
+    const primary = dir==='ArrowRight'?dx:dir==='ArrowLeft'?-dx:dir==='ArrowDown'?dy:-dy;
+    const secondary = dir==='ArrowRight'||dir==='ArrowLeft'?Math.abs(dy):Math.abs(dx);
+    if (primary <= 2) continue;
+    const score = primary + secondary*2.4;
+    if (score < bestScore) { bestScore=score; best=el; }
+  }
+  if (best) { best.focus(); best.scrollIntoView({block:'nearest',inline:'nearest'}); event.preventDefault(); }
+});
+
 </script></body></html>
